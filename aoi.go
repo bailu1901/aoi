@@ -2,6 +2,7 @@ package aoi
 
 import (
 	"fmt"
+	"sync"
 )
 
 // ID id
@@ -40,13 +41,12 @@ type node struct {
 	nextY *node
 }
 
-func newNode(id ID, x, y float32) *node {
-	return &node{
-		id: id,
-		x:  x,
-		y:  y,
-	}
+func (n *node) set(id ID, x, y float32) {
+	n.id = id
+	n.x = x
+	n.y = y
 }
+
 func (n *node) String() string {
 	ret := ""
 	cur := n
@@ -103,6 +103,7 @@ func Abs(a float32) float32 {
 // Manager Manager
 type Manager struct {
 	objs     map[ID]*node // 所有对象
+	pool     *sync.Pool   // 对象池
 	head     *node        // 头节点
 	tail     *node        // 尾节点
 	rangeX   float32      // X轴可视范围
@@ -124,11 +125,18 @@ func NewManager(viewX, viewY float32, capcity int, l eventListener) *Manager {
 		leaveSet:  make(Set, capcity),
 		enterSet:  make(Set, capcity),
 		moveSet:   make(Set, capcity),
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return &node{}
+			},
+		},
 	}
 
 	// 初始化头尾节点
-	mgr.head = newNode(-99999999, -99999999, -99999999)
-	mgr.tail = newNode(99999999, 99999999, 99999999)
+	mgr.head = mgr.pool.Get().(*node)
+	mgr.head.set(-99999999, -99999999, -99999999)
+	mgr.tail = mgr.pool.Get().(*node)
+	mgr.tail.set(99999999, 99999999, 99999999)
 
 	mgr.head.nextX = mgr.tail
 	mgr.head.nextY = mgr.tail
@@ -179,7 +187,8 @@ func (mgr *Manager) Enter(id ID, x, y float32) bool {
 	}
 
 	// 新节点
-	newNode := newNode(id, x, y)
+	newNode := mgr.pool.Get().(*node)
+	newNode.set(id, x, y)
 
 	// 遍历x轴，插入合适位置，同时把需要通知进入的人放入集合
 	cur := mgr.head.nextX
@@ -324,6 +333,7 @@ func (mgr *Manager) Leave(id ID) {
 	n.BreakX()
 	n.BreakY()
 	delete(mgr.objs, id)
+	mgr.pool.Put(n)
 	mgr.processEvent(id)
 }
 
