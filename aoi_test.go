@@ -6,6 +6,14 @@ import (
 	"testing"
 )
 
+const (
+	maxCount   = 10000
+	mapX       = 100
+	mapY       = 100
+	viewRangeX = 10
+	viewRangeY = 10
+)
+
 // 事件监听
 type emptyListener struct {
 }
@@ -26,14 +34,14 @@ func (*emptyListener) OnLeave(id ID, s Set) {
 }
 
 func TestAOI(t *testing.T) {
-	m := NewManager(2, 2, 1000, &emptyListener{})
+	m := NewManager(2, 2, maxCount, &emptyListener{})
 
 	var id ID = 1
-	m.Add(id, 1, 0)
-	m.Add(2, 0, 1)
-	m.Add(3, 1, 1)
-	m.Add(4, 3, 3)
-	m.Add(5, 4, 4)
+	m.Enter(id, 1, 0)
+	m.Enter(2, 0, 1)
+	m.Enter(3, 1, 1)
+	m.Enter(4, 3, 3)
+	m.Enter(5, 4, 4)
 
 	fmt.Println(m.head.nextX)
 
@@ -67,68 +75,66 @@ func TestAOI(t *testing.T) {
 }
 
 func BenchmarkAdd(b *testing.B) {
-	m := NewManager(100, 100, 1000, nil)
+	m := NewManager(viewRangeX, viewRangeY, maxCount, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Add(ID(i), float32(i), float32(i))
+		m.Enter(ID(i), float32(i), float32(i))
 	}
 }
 
 func BenchmarkMove(b *testing.B) {
-	count := 10000
-	m := NewManager(20, 20, count, nil)
 
-	for i := 0; i < count; i++ {
-		m.Add(ID(i), float32(i/100), float32(i%100))
+	m := NewManager(viewRangeX, viewRangeY, maxCount, nil)
+
+	for i := 0; i < maxCount; i++ {
+		m.Enter(ID(i), float32(i/mapX), float32(i%mapY))
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		id := ID(i % count)
-		x := float32(rand.Int() % 100)
-		y := float32(rand.Int() % 100)
+		id := ID(i % maxCount)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
 		b.StartTimer()
 		m.Move(id, x, y)
 	}
 }
 
 func BenchmarkLeave(b *testing.B) {
-	count := 10000
-	m := NewManager(20, 20, count, nil)
+	m := NewManager(viewRangeX, viewRangeY, maxCount, nil)
 
-	for i := 0; i < count; i++ {
-		m.Add(ID(i), float32(i/100), float32(i%100))
+	for i := 0; i < maxCount; i++ {
+		m.Enter(ID(i), float32(i/mapX), float32(i%mapY))
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		id := ID(i % count)
+		id := ID(i % maxCount)
 		b.StartTimer()
 		m.Leave(id)
 		b.StopTimer()
-		x := float32(rand.Int() % 100)
-		y := float32(rand.Int() % 100)
-		m.Add(id, x, y)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+		m.Enter(id, x, y)
 		b.StartTimer()
 	}
 }
 
 func BenchmarkRange(b *testing.B) {
-	count := 10000
-	m := NewManager(20, 20, count, nil)
+	m := NewManager(viewRangeX, viewRangeY, maxCount, nil)
 
-	for i := 0; i < count; i++ {
-		m.Add(ID(i), float32(i/100), float32(i%100))
+	for i := 0; i < maxCount; i++ {
+		m.Enter(ID(i), float32(i/mapX), float32(i%mapY))
 	}
 
-	s := make(Set, 400)
+	s := make(Set, viewRangeX*viewRangeY)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		id := ID(i % count)
+		id := ID(i % maxCount)
 		b.StartTimer()
 		m.GetRange(id, s)
 	}

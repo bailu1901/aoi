@@ -172,8 +172,8 @@ func (mgr *Manager) GetRange(id ID, ret Set) {
 	return
 }
 
-// Add 添加节点
-func (mgr *Manager) Add(id ID, x, y float32) bool {
+// Enter 添加节点
+func (mgr *Manager) Enter(id ID, x, y float32) bool {
 	if _, ok := mgr.objs[id]; ok {
 		return false
 	}
@@ -294,7 +294,7 @@ func (mgr *Manager) Move(id ID, x, y float32) bool {
 		inRangeY = true
 	}
 
-	if !(inRangeX && inRangeY) { // 这次移动没出X轴的范围也没出Y轴的范围
+	if !inRangeX || !inRangeY { // 这次移动没出X轴的范围也没出Y轴的范围
 		mgr.GetRange(id, mgr.enterSet)
 		// old和new的交集就是move，剩下的是离开
 		for k := range mgr.moveSet {
@@ -315,7 +315,15 @@ func (mgr *Manager) Move(id ID, x, y float32) bool {
 
 // Leave 离开
 func (mgr *Manager) Leave(id ID) {
+	n, ok := mgr.objs[id]
+	if !ok {
+		return
+	}
+
 	mgr.GetRange(id, mgr.leaveSet)
+	n.BreakX()
+	n.BreakY()
+	delete(mgr.objs, id)
 	mgr.processEvent(id)
 }
 
