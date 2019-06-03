@@ -6,14 +6,27 @@ import (
 	"testing"
 )
 
+// 事件监听
+type emptyListener struct {
+}
+
+// OnEnter 进入
+func (*emptyListener) OnEnter(id ID, s Set) {
+	fmt.Println("OnEnter", id, s)
+}
+
+// OnMove 移动
+func (*emptyListener) OnMove(id ID, s Set) {
+	fmt.Println("OnMove", id, s)
+}
+
+// OnLeave 离开
+func (*emptyListener) OnLeave(id ID, s Set) {
+	fmt.Println("OnLeave", id, s)
+}
+
 func TestAOI(t *testing.T) {
-	m := NewManager(2, 2, 1000, func(id ID, s Set) {
-		fmt.Println("EnterCallback", id, s)
-	}, func(id ID, s Set) {
-		fmt.Println("MoveCallback", id, s)
-	}, func(id ID, s Set) {
-		fmt.Println("LeaveCallback", id, s)
-	})
+	m := NewManager(2, 2, 1000, &emptyListener{})
 
 	var id ID = 1
 	m.Add(id, 1, 0)
@@ -54,13 +67,7 @@ func TestAOI(t *testing.T) {
 }
 
 func BenchmarkAdd(b *testing.B) {
-	m := NewManager(100, 100, 1000, func(id ID, s Set) {
-		//fmt.Println("EnterCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("MoveCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("LeaveCallback", id, s)
-	})
+	m := NewManager(100, 100, 1000, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -70,13 +77,7 @@ func BenchmarkAdd(b *testing.B) {
 
 func BenchmarkMove(b *testing.B) {
 	count := 10000
-	m := NewManager(20, 20, count, func(id ID, s Set) {
-		//fmt.Println("EnterCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("MoveCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("LeaveCallback", id, s)
-	})
+	m := NewManager(20, 20, count, nil)
 
 	for i := 0; i < count; i++ {
 		m.Add(ID(i), float32(i/100), float32(i%100))
@@ -95,13 +96,7 @@ func BenchmarkMove(b *testing.B) {
 
 func BenchmarkLeave(b *testing.B) {
 	count := 10000
-	m := NewManager(20, 20, count, func(id ID, s Set) {
-		//fmt.Println("EnterCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("MoveCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("LeaveCallback", id, s)
-	})
+	m := NewManager(20, 20, count, nil)
 
 	for i := 0; i < count; i++ {
 		m.Add(ID(i), float32(i/100), float32(i%100))
@@ -123,13 +118,7 @@ func BenchmarkLeave(b *testing.B) {
 
 func BenchmarkRange(b *testing.B) {
 	count := 10000
-	m := NewManager(20, 20, count, func(id ID, s Set) {
-		//fmt.Println("EnterCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("MoveCallback", id, s)
-	}, func(id ID, s Set) {
-		//fmt.Println("LeaveCallback", id, s)
-	})
+	m := NewManager(20, 20, count, nil)
 
 	for i := 0; i < count; i++ {
 		m.Add(ID(i), float32(i/100), float32(i%100))

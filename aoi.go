@@ -1,6 +1,11 @@
 package aoi
 
-import "fmt"
+import (
+	"fmt"
+)
+
+// ID id
+type ID int32
 
 // Set 集合
 type Set map[ID]struct{}
@@ -12,17 +17,17 @@ func (s Set) Clear() {
 	}
 }
 
-// EnterCallback 进入回掉
-type EnterCallback func(ID, Set)
+// 事件监听
+type eventListener interface {
+	// OnEnter 进入
+	OnEnter(ID, Set)
 
-// MoveCallback 移动回掉
-type MoveCallback func(ID, Set)
+	// OnMove 移动
+	OnMove(ID, Set)
 
-// LeaveCallback 离开回掉
-type LeaveCallback func(ID, Set)
-
-// ID id
-type ID int32
+	// OnLeave 离开
+	OnLeave(ID, Set)
+}
 
 type node struct {
 	id ID
@@ -97,39 +102,31 @@ func Abs(a float32) float32 {
 
 // Manager Manager
 type Manager struct {
-	objs map[ID]*node
+	objs     map[ID]*node // 所有对象
+	head     *node        // 头节点
+	tail     *node        // 尾节点
+	rangeX   float32      // X轴可视范围
+	rangeY   float32      // Y轴可视范围
+	leaveSet Set          // 通知离开的集合
+	enterSet Set          // 通知进入的集合
+	moveSet  Set          // 通知移动的集合
 
-	head *node
-	tail *node
-
-	rangeX float32
-	rangeY float32
-
-	leaveSet Set // 通知离开的集合
-	enterSet Set // 通知进入的集合
-	moveSet  Set // 通知移动的集合
-
-	enterCb EnterCallback
-	moveCb  MoveCallback
-	leaveCb LeaveCallback
+	linstener eventListener // 事件监听
 }
 
 // NewManager AOI管理器
-func NewManager(viewX, viewY float32, capcity int,
-	ecb EnterCallback,
-	mcb MoveCallback,
-	lcb LeaveCallback) *Manager {
+func NewManager(viewX, viewY float32, capcity int, l eventListener) *Manager {
 	mgr := &Manager{
-		objs:     make(map[ID]*node, capcity),
-		rangeX:   viewX,
-		rangeY:   viewY,
-		enterCb:  ecb,
-		moveCb:   mcb,
-		leaveCb:  lcb,
-		leaveSet: make(Set, capcity),
-		enterSet: make(Set, capcity),
-		moveSet:  make(Set, capcity),
+		objs:      make(map[ID]*node, capcity),
+		rangeX:    viewX,
+		rangeY:    viewY,
+		linstener: l,
+		leaveSet:  make(Set, capcity),
+		enterSet:  make(Set, capcity),
+		moveSet:   make(Set, capcity),
 	}
+
+	// 初始化头尾节点
 	mgr.head = newNode(-99999999, -99999999, -99999999)
 	mgr.tail = newNode(99999999, 99999999, 99999999)
 
@@ -310,7 +307,7 @@ func (mgr *Manager) Move(id ID, x, y float32) bool {
 		}
 	}
 
-	// 回掉
+	// 回调
 	mgr.processEvent(n.id)
 
 	return true
@@ -324,14 +321,16 @@ func (mgr *Manager) Leave(id ID) {
 
 // processEvent 处理事件
 func (mgr *Manager) processEvent(id ID) {
-	if len(mgr.enterSet) > 0 {
-		mgr.enterCb(id, mgr.enterSet)
-	}
-	if len(mgr.moveSet) > 0 {
-		mgr.moveCb(id, mgr.moveSet)
-	}
-	if len(mgr.leaveSet) > 0 {
-		mgr.leaveCb(id, mgr.leaveSet)
+	if nil != mgr.linstener {
+		if len(mgr.enterSet) > 0 {
+			mgr.linstener.OnEnter(id, mgr.enterSet)
+		}
+		if len(mgr.moveSet) > 0 {
+			mgr.linstener.OnMove(id, mgr.moveSet)
+		}
+		if len(mgr.leaveSet) > 0 {
+			mgr.linstener.OnLeave(id, mgr.leaveSet)
+		}
 	}
 
 	mgr.enterSet.Clear()
