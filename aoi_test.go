@@ -1,7 +1,6 @@
 package aoi
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 )
@@ -16,62 +15,221 @@ const (
 
 // 事件监听
 type emptyListener struct {
+	leaveSet Set // 通知离开的集合
+	enterSet Set // 通知进入的集合
+	moveSet  Set // 通知移动的集合
 }
 
-// OnEnter 进入
-func (*emptyListener) OnEnter(id ID, s Set) {
-	fmt.Println("OnEnter", id, s)
+func newEmptyListener() *emptyListener {
+	return &emptyListener{
+		leaveSet: make(Set, maxCount),
+		enterSet: make(Set, maxCount),
+		moveSet:  make(Set, maxCount),
+	}
+}
+func (l *emptyListener) clear() {
+	l.enterSet.Clear()
+	l.moveSet.Clear()
+	l.leaveSet.Clear()
 }
 
-// OnMove 移动
-func (*emptyListener) OnMove(id ID, s Set) {
-	fmt.Println("OnMove", id, s)
+func (l *emptyListener) OnEnter(id ID, s Set) {
+	l.enterSet.Clear()
+	for k := range s {
+		l.enterSet[k] = struct{}{}
+	}
+	//fmt.Println("OnEnter", id, s)
 }
 
-// OnLeave 离开
-func (*emptyListener) OnLeave(id ID, s Set) {
-	fmt.Println("OnLeave", id, s)
+func (l *emptyListener) OnMove(id ID, s Set) {
+
+	l.moveSet.Clear()
+	for k := range s {
+		l.moveSet[k] = struct{}{}
+	}
+	//fmt.Println("OnMove", id, s)
 }
 
-func TestAOI(t *testing.T) {
-	m := NewManager(2, 2, maxCount, &emptyListener{})
+func (l *emptyListener) OnLeave(id ID, s Set) {
+	l.leaveSet.Clear()
+	for k := range s {
+		l.leaveSet[k] = struct{}{}
+	}
+	//fmt.Println("OnLeave", id, s)
+}
 
-	var id ID = 1
-	m.Enter(id, 1, 0)
-	m.Enter(2, 0, 1)
-	m.Enter(3, 1, 1)
-	m.Enter(4, 3, 3)
-	m.Enter(5, 4, 4)
+type testPoint struct {
+	id ID
+	x  float32
+	y  float32
+}
 
-	fmt.Println(m.head.nextX)
+type points []*testPoint
 
-	s := make(Set, 100)
-	m.GetRange(id, s)
-	fmt.Println("m.GetRange", s)
-	s.Clear()
+func (ps points) View(idx int, rx, ry float32) Set {
+	ret := make(Set, 0)
+	p := ps[idx]
+	for i := 0; i < len(ps); i++ {
+		if i == idx {
+			continue
+		}
+		pp := ps[i]
+		if Abs(pp.x-p.x) <= rx && Abs(pp.y-p.y) <= ry {
+			ret[pp.id] = struct{}{}
+		}
+	}
+	return ret
+}
 
-	m.Move(id, 0, 1)
-	fmt.Println("m.GetRange", s)
-	s.Clear()
+func TestAOIAdd(t *testing.T) {
+	l := newEmptyListener()
+	m := NewManager(viewRangeX, viewRangeY, maxCount, l)
+	ps := make(points, 0, maxCount)
 
-	m.Move(id, 3, 0)
-	fmt.Println("m.GetRange", s)
-	s.Clear()
+	for i := 0; i < maxCount; i++ {
 
-	m.Move(id, 4, 4)
-	fmt.Println("m.GetRange", s)
-	s.Clear()
+		id := ID(i)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+		p := &testPoint{id, x, y}
+		s := ps.View(i, viewRangeX, viewRangeY)
 
-	m.Move(id, 2, 2)
-	fmt.Println("m.GetRange", s)
-	s.Clear()
+		if !m.Enter(p.id, p.x, p.y) {
+			t.FailNow()
+		}
 
-	m.Move(id, 0, 0)
-	fmt.Println("m.GetRange", s)
-	s.Clear()
+		if len(l.enterSet) != len(s) {
+			t.FailNow()
+		}
+		for k := range s {
+			if _, ok := l.enterSet[k]; !ok {
+				t.FailNow()
+			}
+		}
 
-	fmt.Println(m.head.nextX)
-	m.Leave(id)
+		ps = append(ps, p)
+		l.clear()
+	}
+}
+
+func TestAOIMove(t *testing.T) {
+	l := newEmptyListener()
+	m := NewManager(viewRangeX, viewRangeY, maxCount, l)
+	ps := make(points, 0, maxCount)
+
+	for i := 0; i < maxCount; i++ {
+		id := ID(i)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+		p := &testPoint{id, x, y}
+
+		m.Enter(id, x, y)
+
+		ps = append(ps, p)
+	}
+
+	for i := 0; i < maxCount; i++ {
+
+		id := rand.Int() % maxCount
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+
+		leaveSet := ps.View(id, viewRangeX, viewRangeY)
+		ps[id].x, ps[id].y = x, y
+		enterSet := ps.View(id, viewRangeX, viewRangeY)
+
+		moveSet := leaveSet.Inersect(enterSet)
+		enterSet.Trim(moveSet)
+		leaveSet.Trim(moveSet)
+
+		if !m.Move(ID(id), x, y) {
+			t.FailNow()
+		}
+
+		if !enterSet.Equal(l.enterSet) {
+			t.FailNow()
+		}
+
+		if !moveSet.Equal(l.moveSet) {
+			t.FailNow()
+		}
+		if !leaveSet.Equal(l.leaveSet) {
+			t.FailNow()
+		}
+
+		l.clear()
+	}
+}
+
+func TestAOIRange(t *testing.T) {
+	//l := newEmptyListener()
+	m := NewManager(viewRangeX, viewRangeY, maxCount, nil)
+	ps := make(points, 0, maxCount)
+
+	for i := 0; i < maxCount; i++ {
+		id := ID(i)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+		p := &testPoint{id, x, y}
+
+		m.Enter(id, x, y)
+
+		ps = append(ps, p)
+	}
+
+	for i := 0; i < maxCount; i++ {
+
+		id := rand.Int() % maxCount
+		//x := float32(rand.Int() % mapX)
+		//y := float32(rand.Int() % mapY)
+
+		s := ps.View(id, viewRangeX, viewRangeY)
+
+		rs := make(Set, 0)
+		m.GetRange(ID(id), rs)
+		if !s.Equal(rs) {
+			t.FailNow()
+		}
+	}
+}
+
+func TestAOILeave(t *testing.T) {
+	l := newEmptyListener()
+	m := NewManager(viewRangeX, viewRangeY, maxCount, l)
+	ps := make(points, 0, maxCount)
+
+	for i := 0; i < maxCount; i++ {
+		id := ID(i)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+		p := &testPoint{id, x, y}
+
+		m.Enter(id, x, y)
+
+		ps = append(ps, p)
+	}
+
+	for i := 0; i < maxCount; i++ {
+
+		id := rand.Int() % maxCount
+		p := ps[id]
+		//x := float32(rand.Int() % mapX)
+		//y := float32(rand.Int() % mapY)
+
+		s := ps.View(id, viewRangeX, viewRangeY)
+
+		if !m.Leave(ID(id)) {
+			t.FailNow()
+		}
+		if !s.Equal(l.leaveSet) {
+			t.FailNow()
+		}
+		if !m.Enter(ID(p.id), p.x, p.y) {
+			t.FailNow()
+		}
+
+		l.clear()
+	}
 }
 
 func BenchmarkAdd(b *testing.B) {

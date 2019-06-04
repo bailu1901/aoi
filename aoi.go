@@ -11,6 +11,40 @@ type ID int32
 // Set 集合
 type Set map[ID]struct{}
 
+func (s Set) Inersect(other Set) Set {
+	ret := make(Set, 0)
+	for k := range s {
+		if _, ok := other[k]; ok {
+			ret[k] = struct{}{}
+		}
+	}
+	return ret
+}
+
+func (s Set) Trim(other Set) {
+	for k := range other {
+		delete(s, k)
+	}
+}
+
+func (s Set) Contain(id ID) bool {
+	_, ok := s[id]
+	return ok
+}
+
+func (s Set) Equal(other Set) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	for k := range s {
+		if !other.Contain(k) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Clear 清除
 func (s Set) Clear() {
 	for k := range s {
@@ -240,6 +274,10 @@ func (mgr *Manager) Move(id ID, x, y float32) bool {
 		return false
 	}
 
+	//mgr.leaveSet = make(Set, 100)
+	//mgr.enterSet = make(Set, 100)
+	//mgr.moveSet = make(Set, 100)
+
 	// 先获得
 	mgr.GetRange(id, mgr.moveSet)
 
@@ -323,10 +361,10 @@ func (mgr *Manager) Move(id ID, x, y float32) bool {
 }
 
 // Leave 离开
-func (mgr *Manager) Leave(id ID) {
+func (mgr *Manager) Leave(id ID) bool {
 	n, ok := mgr.objs[id]
 	if !ok {
-		return
+		return false
 	}
 
 	mgr.GetRange(id, mgr.leaveSet)
@@ -335,6 +373,7 @@ func (mgr *Manager) Leave(id ID) {
 	delete(mgr.objs, id)
 	mgr.pool.Put(n)
 	mgr.processEvent(id)
+	return true
 }
 
 // processEvent 处理事件
@@ -354,4 +393,21 @@ func (mgr *Manager) processEvent(id ID) {
 	mgr.enterSet.Clear()
 	mgr.moveSet.Clear()
 	mgr.leaveSet.Clear()
+}
+
+// Clear 清除
+func (mgr *Manager) Clear() {
+	cur := mgr.head.nextX
+	for cur != mgr.tail {
+		cur.BreakX()
+		cur = cur.nextX
+	}
+	cur = mgr.head.nextY
+	for cur != mgr.tail {
+		cur.BreakY()
+		cur = cur.nextY
+	}
+	for k := range mgr.objs {
+		delete(mgr.objs, k)
+	}
 }
