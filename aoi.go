@@ -274,10 +274,6 @@ func (mgr *Manager) Move(id ID, x, y float32) bool {
 		return false
 	}
 
-	//mgr.leaveSet = make(Set, 100)
-	//mgr.enterSet = make(Set, 100)
-	//mgr.moveSet = make(Set, 100)
-
 	// 先获得
 	mgr.GetRange(id, mgr.moveSet)
 

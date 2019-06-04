@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	maxCount   = 10000
-	mapX       = 100
-	mapY       = 100
-	viewRangeX = 10
-	viewRangeY = 10
+	maxCount   = 5000
+	mapX       = 200
+	mapY       = 200
+	viewRangeX = 20
+	viewRangeY = 20
 )
 
 // 事件监听
@@ -92,6 +92,7 @@ func TestAOIAdd(t *testing.T) {
 		x := float32(rand.Int() % mapX)
 		y := float32(rand.Int() % mapY)
 		p := &testPoint{id, x, y}
+		ps = append(ps, p)
 		s := ps.View(i, viewRangeX, viewRangeY)
 
 		if !m.Enter(p.id, p.x, p.y) {
@@ -107,7 +108,6 @@ func TestAOIAdd(t *testing.T) {
 			}
 		}
 
-		ps = append(ps, p)
 		l.clear()
 	}
 }
@@ -234,10 +234,19 @@ func TestAOILeave(t *testing.T) {
 
 func BenchmarkAdd(b *testing.B) {
 	m := NewManager(viewRangeX, viewRangeY, maxCount, nil)
-
+	for i := 0; i < maxCount; i++ {
+		m.Enter(ID(i), float32(i/mapX), float32(i%mapY))
+	}
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
-		m.Enter(ID(i), float32(i), float32(i))
+		b.StopTimer()
+		id := ID(i % maxCount)
+		x := float32(rand.Int() % mapX)
+		y := float32(rand.Int() % mapY)
+		m.Leave(id)
+		b.StartTimer()
+		m.Enter(id, x, y)
 	}
 }
 
